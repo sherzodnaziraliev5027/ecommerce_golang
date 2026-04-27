@@ -18,8 +18,8 @@ func NewService(r *Repository) *Service {
 // 🔹 REGISTER
 func (s *Service) Register(email, password string) error {
 
-	existingUser, _ := s.repo.FindByEmail(email)
-	if existingUser != nil {
+	existingUser, err := s.repo.FindByEmail(email)
+	if err == nil && existingUser != nil {
 		return errors.New("email already exists")
 	}
 

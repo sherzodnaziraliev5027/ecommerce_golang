@@ -60,6 +60,14 @@ func main() {
 			"role":    role,
 		})
 	})
+	admin := protected.Group("/admin")
+	admin.Use(middleware.RequireRole("super_admin"))
+
+	admin.GET("/dashboard", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Welcome SuperAdmin",
+		})
+	})
 
 	// 🔹 Start server
 	r.Run(":8080")

@@ -36,6 +36,7 @@ func (h *Handler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "user created",
 	})
+
 }
 
 // 🔹 LOGIN

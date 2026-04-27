@@ -8,8 +8,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// 🔐 AUTH MIDDLEWARE (checks token)
 func AuthMiddleware() gin.HandlerFunc {
-
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
 
@@ -33,12 +33,50 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		claims := token.Claims.(jwt.MapClaims)
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid token claims",
+			})
+			return
+		}
 
-		// 🔥 store data in context
+		// 🔥 store user data in context
 		c.Set("user_id", claims["user_id"])
 		c.Set("role", claims["role"])
 
 		c.Next()
+	}
+}
+
+// 🔒 ROLE MIDDLEWARE (checks permissions)
+func RequireRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("role")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "role not found",
+			})
+			return
+		}
+
+		roleStr, ok := userRole.(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "invalid role type",
+			})
+			return
+		}
+
+		for _, r := range roles {
+			if roleStr == r {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+			"error": "forbidden",
+		})
 	}
 }
