@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ecommerce/internal/categories"
 	"ecommerce/internal/users"
 
 	"log"
@@ -11,6 +12,12 @@ import (
 	"ecommerce/pkg/database"
 
 	"ecommerce/pkg/middleware"
+
+	"ecommerce/internal/cart"
+
+	"ecommerce/internal/orders"
+
+	"ecommerce/internal/products"
 )
 
 func main() {
@@ -24,7 +31,8 @@ func main() {
 
 	database.Connect()
 
-	err = database.DB.AutoMigrate(&users.User{})
+	err = database.DB.AutoMigrate(&users.User{}, &categories.Category{},
+		&products.Product{}, &products.ProductVariation{}, &cart.CartItem{}, &orders.Order{}, &orders.OrderItem{})
 
 	if err != nil {
 		log.Fatal("migration failed:", err)
@@ -68,6 +76,39 @@ func main() {
 			"message": "Welcome SuperAdmin",
 		})
 	})
+
+	catRepo := &categories.Repository{}
+	catService := categories.NewService(catRepo)
+	catHandler := categories.NewHandler(catService)
+
+	prodRepo := &products.Repository{}
+	prodService := products.NewService(prodRepo)
+	prodHandler := products.NewHandler(prodService)
+
+	cartRepo := &cart.Repository{}
+	cartService := cart.NewService(cartRepo)
+	cartHandler := cart.NewHandler(cartService)
+
+	orderRepo := &orders.Repository{}
+	orderService := orders.NewService(orderRepo, cartRepo, prodRepo)
+	orderHandler := orders.NewHandler(orderService)
+
+	protected.POST("/categories", catHandler.Create)
+	protected.POST("/products", prodHandler.CreateProduct)
+	protected.POST("/cart", cartHandler.AddToCart)
+	protected.POST("/checkout", orderHandler.Checkout)
+
+	protected.GET("/cart", cartHandler.GetCart)
+
+	protected.GET("/categories", catHandler.GetAll)
+	protected.GET("/categories/tree", catHandler.GetTree)
+
+	protected.GET("/products", prodHandler.GetAllProducts)
+
+	protected.GET("/products/:id", prodHandler.GetProductByID)
+
+	protected.PUT("/cart", cartHandler.UpdateCart)
+	protected.DELETE("/cart/:variation_id", cartHandler.RemoveFromCart)
 
 	// 🔹 Start server
 	r.Run(":8080")
