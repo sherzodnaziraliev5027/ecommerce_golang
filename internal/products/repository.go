@@ -19,9 +19,26 @@ func (r *Repository) CreateVariation(variation *ProductVariation) error {
 }
 
 // 🔹 Get all products
-func (r *Repository) FindAllProducts() ([]Product, error) {
+func (r *Repository) FindProducts(limit, offset int) ([]Product, error) {
 	var products []Product
-	err := database.DB.Find(&products).Error
+
+	err := database.DB.
+		Limit(limit).
+		Offset(offset).
+		Find(&products).Error
+
+	return products, err
+}
+
+func (r *Repository) FindProductsByCategory(categoryID uuid.UUID, limit, offset int) ([]Product, error) {
+	var products []Product
+
+	err := database.DB.
+		Where("category_id = ?", categoryID).
+		Limit(limit).
+		Offset(offset).
+		Find(&products).Error
+
 	return products, err
 }
 
@@ -60,4 +77,85 @@ func (r *Repository) FindVariationByID(id uuid.UUID) (*ProductVariation, error) 
 		return nil, err
 	}
 	return &v, nil
+}
+
+func (r *Repository) CountProducts(categoryID *uuid.UUID) (int64, error) {
+	var count int64
+
+	query := database.DB.Model(&Product{})
+
+	if categoryID != nil {
+		query = query.Where("category_id = ?", *categoryID)
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) FindProductsAdvanced(
+	categoryID *uuid.UUID,
+	minPrice, maxPrice float64,
+	sort string,
+	limit, offset int,
+) ([]Product, error) {
+
+	var products []Product
+
+	query := database.DB.Model(&Product{}).
+		Joins("JOIN product_variations ON product_variations.product_id = products.id")
+
+	if categoryID != nil {
+		query = query.Where("products.category_id = ?", *categoryID)
+	}
+
+	if minPrice > 0 {
+		query = query.Where("product_variations.price >= ?", minPrice)
+	}
+
+	if maxPrice > 0 {
+		query = query.Where("product_variations.price <= ?", maxPrice)
+	}
+
+	switch sort {
+	case "price_asc":
+		query = query.Order("product_variations.price ASC")
+	case "price_desc":
+		query = query.Order("product_variations.price DESC")
+	default:
+		query = query.Order("products.created_at DESC")
+	}
+
+	err := query.
+		Limit(limit).
+		Offset(offset).
+		Find(&products).Error
+
+	return products, err
+}
+
+func (r *Repository) CountProductsAdvanced(
+	categoryID *uuid.UUID,
+	minPrice, maxPrice float64,
+) (int64, error) {
+
+	var count int64
+
+	query := database.DB.Model(&Product{}).
+		Joins("JOIN product_variations ON product_variations.product_id = products.id")
+
+	if categoryID != nil {
+		query = query.Where("products.category_id = ?", *categoryID)
+	}
+
+	if minPrice > 0 {
+		query = query.Where("product_variations.price >= ?", minPrice)
+	}
+
+	if maxPrice > 0 {
+		query = query.Where("product_variations.price <= ?", maxPrice)
+	}
+
+	err := query.Distinct("products.id").Count(&count).Error
+
+	return count, err
 }

@@ -1,7 +1,9 @@
 package products
 
 import (
+	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -66,34 +68,6 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	})
 }
 
-// 🔥 Get all products (with optional category filter)
-func (h *Handler) GetAllProducts(c *gin.Context) {
-	// 1. Read query param
-	categoryIDStr := c.Query("category_id")
-
-	// 2. Convert to UUID (if provided)
-	var categoryUUID *uuid.UUID
-
-	if categoryIDStr != "" {
-		parsed, err := uuid.Parse(categoryIDStr)
-		if err != nil {
-			c.JSON(400, gin.H{"error": "invalid category_id"})
-			return
-		}
-		categoryUUID = &parsed
-	}
-
-	// 3. Call service
-	products, err := h.service.GetAllProducts(categoryUUID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 4. Return response
-	c.JSON(200, products)
-}
-
 func (h *Handler) GetProductByID(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -106,8 +80,11 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 
 	// 2) call service
 	product, err := h.service.GetProductByID(id)
+
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		log.Println("GetAllProducts error:", err)
+
+		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -119,4 +96,97 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 
 	// 4) return
 	c.JSON(200, product)
+}
+
+func (h *Handler) GetAllProducts(c *gin.Context) {
+
+	categoryIDStr := c.Query("category_id")
+
+	// ✅ filtering params
+	minPriceStr := c.Query("min_price")
+	maxPriceStr := c.Query("max_price")
+	sort := c.Query("sort")
+
+	// 🔥 ADDED SORT HERE
+	// 🔥 default sort
+	if sort == "" {
+		sort = "price_asc"
+	}
+
+	if sort == "price_desc" {
+		sort = "price_desc"
+	}
+	if sort != "" && sort != "price_asc" && sort != "price_desc" {
+		c.JSON(400, gin.H{"error": "invalid sort value"})
+		return
+	}
+
+	var minPrice, maxPrice float64
+	var err error
+
+	if minPriceStr != "" {
+		minPrice, err = strconv.ParseFloat(minPriceStr, 64)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "invalid min_price"})
+			return
+		}
+	}
+
+	if maxPriceStr != "" {
+		maxPrice, err = strconv.ParseFloat(maxPriceStr, 64)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "invalid max_price"})
+			return
+		}
+	}
+
+	// ✅ pagination
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		c.JSON(400, gin.H{"error": "invalid page"})
+		return
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		c.JSON(400, gin.H{"error": "invalid limit"})
+		return
+	}
+
+	if limit > 50 {
+		limit = 50
+	}
+
+	offset := (page - 1) * limit
+
+	// ✅ parse category
+	var categoryUUID *uuid.UUID
+	if categoryIDStr != "" {
+		parsed, err := uuid.Parse(categoryIDStr)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "invalid category_id"})
+			return
+		}
+		categoryUUID = &parsed
+	}
+
+	products, err := h.service.GetAllProducts(
+		categoryUUID,
+		minPrice,
+		maxPrice,
+		sort,
+		limit,
+		offset,
+		page,
+	)
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, products)
 }

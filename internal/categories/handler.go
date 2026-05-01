@@ -38,7 +38,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 	err := h.service.Create(req.Name, parentUUID)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -51,7 +51,7 @@ func (h *Handler) Create(c *gin.Context) {
 func (h *Handler) GetAll(c *gin.Context) {
 	categories, err := h.service.GetAll()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -62,7 +62,7 @@ func (h *Handler) GetAll(c *gin.Context) {
 func (h *Handler) GetTree(c *gin.Context) {
 	tree, err := h.service.GetTree()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
 

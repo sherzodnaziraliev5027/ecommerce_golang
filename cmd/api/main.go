@@ -2,6 +2,7 @@ package main
 
 import (
 	"ecommerce/internal/categories"
+	"ecommerce/internal/reviews"
 	"ecommerce/internal/users"
 
 	"log"
@@ -32,7 +33,7 @@ func main() {
 	database.Connect()
 
 	err = database.DB.AutoMigrate(&users.User{}, &categories.Category{},
-		&products.Product{}, &products.ProductVariation{}, &cart.CartItem{}, &orders.Order{}, &orders.OrderItem{})
+		&products.Product{}, &products.ProductVariation{}, &cart.CartItem{}, &orders.Order{}, &orders.OrderItem{}, &reviews.Review{})
 
 	if err != nil {
 		log.Fatal("migration failed:", err)
@@ -93,10 +94,16 @@ func main() {
 	orderService := orders.NewService(orderRepo, cartRepo, prodRepo)
 	orderHandler := orders.NewHandler(orderService)
 
+	reviewRepo := reviews.NewRepository()
+
+	reviewService := reviews.NewService(reviewRepo, orderRepo)
+	reviewHandler := reviews.NewHandler(reviewService)
+
 	protected.POST("/categories", catHandler.Create)
 	protected.POST("/products", prodHandler.CreateProduct)
 	protected.POST("/cart", cartHandler.AddToCart)
 	protected.POST("/checkout", orderHandler.Checkout)
+	protected.POST("/pay/:order_id", orderHandler.PayOrder)
 
 	protected.GET("/cart", cartHandler.GetCart)
 
@@ -106,9 +113,15 @@ func main() {
 	protected.GET("/products", prodHandler.GetAllProducts)
 
 	protected.GET("/products/:id", prodHandler.GetProductByID)
+	protected.GET("/orders", orderHandler.GetOrders)
 
 	protected.PUT("/cart", cartHandler.UpdateCart)
 	protected.DELETE("/cart/:variation_id", cartHandler.RemoveFromCart)
+
+	protected.PUT("/orders/:order_id/status", orderHandler.UpdateOrderStatus)
+
+	protected.POST("/reviews", reviewHandler.CreateReview)
+	protected.GET("/products/:id/reviews", reviewHandler.GetProductReviews)
 
 	// 🔹 Start server
 	r.Run(":8080")

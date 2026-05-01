@@ -79,7 +79,7 @@ func (h *Handler) GetCart(c *gin.Context) {
 	// 2. Call service
 	items, err := h.service.GetUserCart(userUUID)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
 
